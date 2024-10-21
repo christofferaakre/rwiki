@@ -1,16 +1,29 @@
-use std::{convert::Infallible, path::PathBuf};
+pub mod routes;
 
-use axum::{http::{Request, Uri}, response::Html, routing::get, Router};
-use tower::ServiceBuilder;
-use tracing::info;
+use std::{convert::Infallible, path::PathBuf, sync::{Arc, LazyLock, Mutex}};
+
+use axum::{
+    body::Bytes,
+    http::{HeaderValue, Request, Response, Uri},
+    response::Html,
+    routing::get,
+    Router,
+};
+use hyper::body::Body;
 use std::net::SocketAddr;
+use tower::{ServiceBuilder, ServiceExt};
 use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use http_body_util::{combinators::BoxBody, BodyExt};
+
 use clap::Parser;
+
+use routes::get_router;
 
 const DEFAULT_PORT: u16 = 8015;
 
@@ -23,46 +36,27 @@ struct CliArgs {
     port: u16,
 }
 
-fn rewrite_url<B>(mut request: Request<B>) -> Request<B> {
-    let uri = request.uri().path().to_string();
+static ROOT_PATH: LazyLock<Arc<Mutex<Option<PathBuf>>>> = LazyLock::new(|| {
+    Arc::new(Mutex::new(None))
+});
 
-    if !uri.contains('.') {
-        let new_path = format!("{}.html", uri);
-        let new_uri = Uri::builder()
-            .path_and_query(&new_path)
-            .build()
-            .unwrap();
-
-        info!("Rewriting request uri {} to {}", uri, new_uri);
-        *request.uri_mut() = new_uri;
-    }
-
-    request
-}
 
 #[tokio::main]
 async fn main() {
     let args = CliArgs::parse();
+    *ROOT_PATH.lock().unwrap() = Some(args.serve_dir.clone());
 
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("{}=info,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+                format!("{}=info", env!("CARGO_CRATE_NAME")).into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let serve_dir = ServeDir::new(args.serve_dir.clone());
-
-    //let app: Router = Router::new().nest_service("/", ServeDir::new(args.serve_dir.clone()));
-    let app = Router::new()
-        .nest_service(
-            "/",
-            ServiceBuilder::new()
-            .map_request(rewrite_url)
-            .service(serve_dir)
-        ).layer(TraceLayer::new_for_http());
+    let app = get_router()
+        .layer(TraceLayer::new_for_http());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -75,3 +69,4 @@ async fn main() {
         .await
         .unwrap();
 }
+

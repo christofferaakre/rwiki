@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.7"
+axum-macros = "0.4.2"
 clap = { version = "4.5.20", features = ["derive"] }
+http-body-util = "0.1.2"
+hyper = { version = "1.5.0", features = ["full"] }
 tokio = { version = "1.40.0", features = ["full"] }
 tower = { version = "0.5.1", features = ["util"] }
 tower-http = { version = "0.6.1", features = ["fs", "trace"] }
