@@ -69,11 +69,12 @@ async fn directory_listing(path: impl AsRef<std::path::Path>) -> (StatusCode, Ht
         let file = item.path().to_str().unwrap().to_owned();
         let relative = relative_path(&file, &path).to_str().unwrap().to_string();
         let name = relative.replace(".html", "");
+        let url = format!("/{}", relative_path(&file, root_path()).to_str().unwrap().to_owned().replace(".html", ""));
         output.push_str(&format!(
             "
                <li><a href=\"{}\">{}</a></li>
                ",
-            name, name
+            url, name
         ));
     }
     output.push_str("</ul>");
@@ -83,6 +84,9 @@ async fn directory_listing(path: impl AsRef<std::path::Path>) -> (StatusCode, Ht
 
 async fn serve_html(Path(file): Path<PathBuf>) -> (StatusCode, Html<String>) {
     let mut path = root_path().join(file);
+    if path.to_str().unwrap().ends_with('/') {
+        path = path.to_str().unwrap().strip_suffix('/').unwrap().into();
+    }
     info!("Request for {}", path.display());
 
     if !path.exists() {
@@ -135,10 +139,13 @@ async fn serve_style_css() -> Response<String> {
         .unwrap()
 }
 
+async fn hello_world() -> &'static str {
+    "Hello world"
+}
 
 pub fn get_router() -> Router {
     Router::new()
         .route("/", get(list_index))
-        .route("/:file", get(serve_html))
+        .route("/*file", get(serve_html))
         .route("/style.css", get(serve_style_css))
 }
