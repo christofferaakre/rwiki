@@ -79,6 +79,8 @@ async fn directory_listing(path: impl AsRef<std::path::Path>) -> (StatusCode, Ht
     }
     output.push_str("</ul>");
 
+    let output = format!("{}{}{}", get_header(), output, get_footer());
+
     (StatusCode::OK, Html::from(output))
 }
 

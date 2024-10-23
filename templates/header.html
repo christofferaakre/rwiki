@@ -3,7 +3,22 @@
         <ul>
             <li><a href="/index">Index</a></li>
             <li><a href="/">Table of Contents</a></li>
+            <li><a id="link-back" href="../">Back one directory</a></li>
         <ul>
     </nav>
 </header>
 
+<script>
+    window.onload = function() {
+        const link = document.getElementById("link-back");
+        const currentUrl = window.location.href;
+        const url = new URL(currentUrl);
+        if (url.pathname === "/" || url.pathname  === "") {
+            link.href = currentUrl;
+        } else {
+            const newUrl = currentUrl.replace(/\/[^\/]*\/?$/, '/');
+            link.href = newUrl;
+        }
+        console.info(`window.location.href: ${window.location.href}`);
+    }
+</script>
